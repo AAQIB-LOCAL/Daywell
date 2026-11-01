@@ -104,7 +104,7 @@
     if(!data||typeof data!=='object'||data.format!=='daywell-journal-backup'||data.version!==1||!Array.isArray(data.entries)) throw new Error('This is not a supported Daywell backup.');
     const validated=new Map();
     for(const entry of data.entries){
-      if(!entry||typeof entry!=='object'||typeof entry.date!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(entry.date)||typeof entry.text!=='string') throw new Error('The backup contains an invalid journal page.');
+      if(!entry||typeof entry!=='object'||typeof entry.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(entry.date)||typeof entry.text!=='string') throw new Error('The backup contains an invalid journal page.');
       const date=parseKey(entry.date);
       if(!Number.isFinite(date.getTime())||keyFor(date)!==entry.date) throw new Error('The backup contains an invalid date.');
       if(entry.text.length>5000000) throw new Error('A journal page is too large to restore.');
