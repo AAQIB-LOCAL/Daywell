@@ -1,0 +1,24 @@
+{
+  "id": "./",
+  "name": "Daywell Journal",
+  "short_name": "Daywell",
+  "description": "A quiet calendar journal with one page for every day.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8f6f0",
+  "theme_color": "#f8f6f0",
+  "categories": [
+    "lifestyle",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
