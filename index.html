@@ -21,7 +21,7 @@
 <div class="app">
   <header>
     <div class="brand"><div class="brand-mark" aria-hidden="true">d</div><div><div class="brand-name">daywell</div><div class="brand-note">A little space for every day</div></div></div>
-    <div class="header-actions"><button class="quiet-btn" id="todayBtn">Today</button><button class="quiet-btn" id="installBtn" hidden>Install app</button></div>
+    <div class="header-actions"><button class="quiet-btn" id="backupBtn" type="button">Backup</button><button class="quiet-btn" id="restoreBtn" type="button">Restore</button><input id="restoreFile" type="file" accept="application/json,.json" hidden><button class="quiet-btn" id="todayBtn">Today</button><button class="quiet-btn" id="installBtn" hidden>Install app</button></div>
   </header>
   <main>
     <section class="calendar-view" id="calendarView" aria-label="Monthly journal calendar">
@@ -66,6 +66,16 @@
   function dbDelete(date){
     return new Promise((resolve,reject)=>{ const tx=state.db.transaction('entries','readwrite'); tx.objectStore('entries').delete(date); tx.oncomplete=()=>resolve(); tx.onerror=()=>reject(tx.error); });
   }
+  function dbPutMany(entries){
+    return new Promise((resolve,reject)=>{
+      const tx=state.db.transaction('entries','readwrite');
+      const store=tx.objectStore('entries');
+      entries.forEach(entry=>store.put(entry));
+      tx.oncomplete=()=>resolve();
+      tx.onerror=()=>reject(tx.error||new Error('Restore failed'));
+      tx.onabort=()=>reject(tx.error||new Error('Restore failed'));
+    });
+  }
   async function loadEntries(){
     try { state.db=await openDB(); const all=await dbAll(); all.forEach(e=>state.entries.set(e.date,e.text)); }
     catch(err){
@@ -80,6 +90,41 @@
       else { const obj={}; state.entries.forEach((v,k)=>{if(v.trim())obj[k]=v}); if(text.trim())obj[date]=text; else delete obj[date]; localStorage.setItem('daywell-entries-v1',JSON.stringify(obj)); }
       if(state.selected===date){ $('saveStatus').textContent='Saved on this device'; $('statusDot').classList.add('saved'); }
     } catch(err){ if(state.selected===date){ $('saveStatus').textContent='Could not save · keep this page open'; $('statusDot').classList.remove('saved'); } toast('Could not save this entry. Check device storage.'); }
+  }
+  function downloadBackup(){
+    const entries=[...state.entries.entries()].filter(([,text])=>typeof text==='string'&&text.trim()).sort(([a],[b])=>a.localeCompare(b)).map(([date,text])=>({date,text}));
+    const backup={format:'daywell-journal-backup',version:1,exportedAt:new Date().toISOString(),entries};
+    const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob); const link=document.createElement('a');
+    link.href=url; link.download='daywell-backup-'+keyFor(new Date())+'.json';
+    document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    toast(entries.length+' journal '+(entries.length===1?'page':'pages')+' backed up. Keep the file somewhere safe.');
+  }
+  function validateBackup(data){
+    if(!data||typeof data!=='object'||data.format!=='daywell-journal-backup'||data.version!==1||!Array.isArray(data.entries)) throw new Error('This is not a supported Daywell backup.');
+    const validated=new Map();
+    for(const entry of data.entries){
+      if(!entry||typeof entry!=='object'||typeof entry.date!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(entry.date)||typeof entry.text!=='string') throw new Error('The backup contains an invalid journal page.');
+      const date=parseKey(entry.date);
+      if(!Number.isFinite(date.getTime())||keyFor(date)!==entry.date) throw new Error('The backup contains an invalid date.');
+      if(entry.text.length>5000000) throw new Error('A journal page is too large to restore.');
+      validated.set(entry.date,entry.text);
+    }
+    return [...validated.entries()].filter(([,text])=>text.trim()).map(([date,text])=>({date,text,updatedAt:Date.now()}));
+  }
+  async function restoreBackup(file){
+    const raw=await file.text(); const incoming=validateBackup(JSON.parse(raw));
+    const merged=new Map(state.entries);
+    incoming.forEach(entry=>merged.set(entry.date,entry.text));
+    const all=[...merged.entries()].filter(([,text])=>text.trim());
+    if(state.db){ await dbPutMany(all.map(([date,text])=>({date,text,updatedAt:Date.now()}))); }
+    else {
+      const object={}; all.forEach(([date,text])=>object[date]=text);
+      localStorage.setItem('daywell-entries-v1',JSON.stringify(object));
+    }
+    state.entries=merged;
+    renderCalendar();
+    toast('Restored '+incoming.length+' journal '+(incoming.length===1?'page':'pages')+'. Existing dates were merged.');
   }
   function renderCalendar(){
     $('monthTitle').textContent=monthName(state.month);
@@ -125,6 +170,14 @@
     const text=$('entryText').value;state.entries.set(date,text);
     return persist(date,text).then(()=>renderCalendar());
   }
+  $('backupBtn').addEventListener('click',()=>{ if(state.selected) flushSave().then(downloadBackup); else downloadBackup(); });
+  $('restoreBtn').addEventListener('click',()=>$('restoreFile').click());
+  $('restoreFile').addEventListener('change',async event=>{
+    const file=event.target.files&&event.target.files[0]; if(!file)return;
+    try { if(state.selected) await flushSave(); await restoreBackup(file); }
+    catch(err){ toast(err instanceof SyntaxError?'The backup file is not valid JSON.':(err.message||'Could not restore this backup.')); }
+    finally { event.target.value=''; }
+  });
   $('prevMonth').addEventListener('click',()=>{state.month=new Date(state.month.getFullYear(),state.month.getMonth()-1,1);renderCalendar()});
   $('nextMonth').addEventListener('click',()=>{state.month=new Date(state.month.getFullYear(),state.month.getMonth()+1,1);renderCalendar()});
   $('todayBtn').addEventListener('click',()=>{if(state.selected){flushSave().then(()=>{const d=new Date();state.month=new Date(d.getFullYear(),d.getMonth(),1);openEditor(keyFor(d))})}else{const d=new Date();state.month=new Date(d.getFullYear(),d.getMonth(),1);renderCalendar()}});
