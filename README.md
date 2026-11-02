@@ -8,13 +8,36 @@ A quiet, minimal calendar journal. Every date opens into a page where you can wr
 - A dedicated long-form journal page for every date
 - Debounced autosave and previous/next-day navigation
 - Local-first storage using IndexedDB, with a localStorage fallback
+- JSON backup and restore for keeping a separate copy of your entries
 - Installable Progressive Web App with an offline app shell
 - Responsive layout for phones, tablets, and desktops
 - No account, server, analytics, or cloud sync required
 
+## Project structure
+
+```text
+Daywell/
+├── index.html
+├── css/
+│   └── styles.css
+├── js/
+│   └── app.js
+├── manifest.json
+├── sw.js
+└── icon.svg
+```
+
+The app uses vanilla HTML, CSS, and JavaScript. There is no build step or third-party runtime dependency. The application code is separated by responsibility: the HTML provides the page structure, the stylesheet controls presentation, and the JavaScript handles the calendar, editor, storage, backup, and PWA install flow.
+
 ## Run locally
 
-Serve the repository over HTTP rather than opening index.html as a file URL. For example, with Python installed, run `python -m http.server 8000`, then open `http://localhost:8000`.
+Serve the repository over HTTP rather than opening `index.html` as a file URL. For example, with Python installed, run:
+
+```bash
+python -m http.server 8000
+```
+
+Then open `http://localhost:8000`.
 
 ## Install on a phone
 
@@ -22,11 +45,11 @@ Deploy over HTTPS, open the site in the phone's browser, and choose Install app 
 
 ## Important storage note
 
-Entries are stored per browser profile and device. They are not automatically synced between a phone and a laptop. Clearing browser/site data, uninstalling the app, or losing the device may remove local entries. Export/backup and cross-device sync are not included in this first version.
+Entries are stored per browser profile and device. They are not automatically synced between a phone and a laptop. Clearing browser/site data, uninstalling the app, or losing the device may remove local entries. Use the Backup action regularly and keep the exported JSON file somewhere safe.
 
 ## Deploy with GitHub Pages
 
-In repository Settings, enable GitHub Pages and choose the main branch as the deployment source (root folder). The app uses relative asset paths so it can run from a repository subpath.
+The repository includes a GitHub Actions workflow for deploying the root of the default branch to GitHub Pages. In repository Settings, set Pages → Build and deployment → Source to GitHub Actions. The app uses relative asset paths so it can run from a repository subpath.
 
 ## Stack
 
